@@ -80,19 +80,30 @@
         .preview-image {
             width: 100%;
             max-width: 500px;
-            height: 300px;
             border-radius: 15px;
             margin: 30px auto;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            display: block;
             box-shadow: 0 10px 25px rgba(0,0,0,0.15);
             transition: transform 0.3s ease;
             overflow: hidden;
+            position: relative;
         }
         
         .preview-image:hover {
             transform: scale(1.05);
+        }
+        
+        /* Canvas para redimensionar a imagem */
+        #imageCanvas {
+            display: none;
+        }
+        
+        .resized-image {
+            width: 100%;
+            height: auto;
+            aspect-ratio: 1200/630;
+            object-fit: cover;
+            border-radius: 15px;
         }
         
         .description {
@@ -225,6 +236,17 @@
             border: 2px solid rgba(255,255,255,0.3);
         }
         
+        .debug-info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 20px 0;
+            font-size: 12px;
+            color: #6c757d;
+            text-align: left;
+        }
+        
         @media (max-width: 768px) {
             .container {
                 padding: 20px;
@@ -239,11 +261,6 @@
                 font-size: 1em;
             }
             
-            .preview-image {
-                height: 200px;
-                font-size: 1.2em;
-            }
-            
             .cta-button, .whatsapp-btn {
                 display: block;
                 margin: 10px 0;
@@ -256,10 +273,15 @@
         <h1>😳 Landing Page Embutida</h1>
         
         <div class="preview-image">
-            <img src="https://engevealbani.github.io/yesfotos/foto/imageponicsderew.png" 
+            <img id="originalImage" 
+                 src="https://engevealbani.github.io/yesfotos/foto/imageponicsderew.png" 
                  alt="Landing Page Embutida - Banner WhatsApp" 
-                 style="width: 100%; height: 100%; object-fit: cover; border-radius: 15px;">
+                 class="resized-image"
+                 crossorigin="anonymous">
         </div>
+
+        <!-- Canvas oculto para redimensionar -->
+        <canvas id="imageCanvas"></canvas>
 
         <div class="price-highlight">
             <strike style="color: #ff9999;">R$ 99,00</strike><br>
@@ -320,9 +342,148 @@
                 📱 Chamar Agora - WhatsApp
             </a>
         </div>
+
+        <!-- Debug das Meta Tags -->
+        <div class="debug-info">
+            <strong>🔧 Debug WhatsApp:</strong><br>
+            <div id="debugInfo"></div>
+            <button onclick="testWhatsAppPreview()" style="margin-top: 10px; padding: 5px 10px;">
+                🧪 Testar Preview WhatsApp
+            </button>
+        </div>
     </div>
 
     <script>
+        // Função para redimensionar imagem para 1200x630px
+        function resizeImageTo1200x630(img) {
+            const canvas = document.getElementById('imageCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Define as dimensões do canvas
+            canvas.width = 1200;
+            canvas.height = 630;
+            
+            // Calcula a proporção para manter a imagem sem distorção
+            const imgRatio = img.naturalWidth / img.naturalHeight;
+            const canvasRatio = 1200 / 630;
+            
+            let drawWidth, drawHeight, offsetX, offsetY;
+            
+            if (imgRatio > canvasRatio) {
+                // Imagem mais larga - ajusta pela altura
+                drawHeight = 630;
+                drawWidth = drawHeight * imgRatio;
+                offsetX = (1200 - drawWidth) / 2;
+                offsetY = 0;
+            } else {
+                // Imagem mais alta - ajusta pela largura
+                drawWidth = 1200;
+                drawHeight = drawWidth / imgRatio;
+                offsetX = 0;
+                offsetY = (630 - drawHeight) / 2;
+            }
+            
+            // Limpa o canvas e desenha a imagem redimensionada
+            ctx.fillStyle = '#ffffff'; // Fundo branco
+            ctx.fillRect(0, 0, 1200, 630);
+            ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+            
+            // Converte para base64 e atualiza as meta tags
+            const resizedImageDataUrl = canvas.toDataURL('image/png', 0.9);
+            updateMetaTags(resizedImageDataUrl);
+            
+            return resizedImageDataUrl;
+        }
+        
+        // Função para atualizar meta tags com a imagem redimensionada
+        function updateMetaTags(imageDataUrl) {
+            // Remove meta tags antigas
+            const oldMetaTags = document.querySelectorAll('meta[property="og:image"], meta[property="og:image:secure_url"], meta[name="twitter:image"]');
+            oldMetaTags.forEach(tag => tag.remove());
+            
+            // Cria novas meta tags com a imagem redimensionada
+            const metaTags = [
+                { property: 'og:image', content: imageDataUrl },
+                { property: 'og:image:secure_url', content: imageDataUrl },
+                { name: 'twitter:image', content: imageDataUrl }
+            ];
+            
+            metaTags.forEach(tag => {
+                const meta = document.createElement('meta');
+                if (tag.property) meta.setAttribute('property', tag.property);
+                if (tag.name) meta.setAttribute('name', tag.name);
+                meta.setAttribute('content', tag.content);
+                document.head.appendChild(meta);
+            });
+        }
+        
+        // Função para testar se a imagem está sendo carregada corretamente
+        function testWhatsAppPreview() {
+            const debugDiv = document.getElementById('debugInfo');
+            
+            // Verifica se a imagem original carregou
+            const img = document.getElementById('originalImage');
+            
+            let debugText = `
+                <strong>Status da Imagem:</strong><br>
+                • URL: ${img.src}<br>
+                • Carregada: ${img.complete ? '✅ Sim' : '❌ Não'}<br>
+                • Dimensões naturais: ${img.naturalWidth}x${img.naturalHeight}<br>
+                • Cross-origin: ${img.crossOrigin || 'não definido'}<br><br>
+                
+                <strong>Meta Tags Atuais:</strong><br>
+            `;
+            
+            // Lista todas as meta tags relevantes
+            const metaTags = document.querySelectorAll('meta[property^="og:"], meta[name^="twitter:"]');
+            metaTags.forEach(tag => {
+                const prop = tag.getAttribute('property') || tag.getAttribute('name');
+                const content = tag.getAttribute('content');
+                debugText += `• ${prop}: ${content ? content.substring(0, 50) + '...' : 'vazio'}<br>`;
+            });
+            
+            debugDiv.innerHTML = debugText;
+            
+            // Tenta redimensionar a imagem se ela estiver carregada
+            if (img.complete && img.naturalWidth > 0) {
+                try {
+                    const resizedImage = resizeImageTo1200x630(img);
+                    debugDiv.innerHTML += '<br><strong>✅ Imagem redimensionada com sucesso!</strong>';
+                } catch (error) {
+                    debugDiv.innerHTML += `<br><strong>❌ Erro ao redimensionar:</strong> ${error.message}`;
+                }
+            }
+        }
+        
+        // Carrega e processa a imagem quando ela estiver pronta
+        window.addEventListener('load', function() {
+            const img = document.getElementById('originalImage');
+            
+            img.onload = function() {
+                console.log('Imagem carregada:', img.naturalWidth + 'x' + img.naturalHeight);
+                
+                // Redimensiona automaticamente se necessário
+                if (img.naturalWidth !== 1200 || img.naturalHeight !== 630) {
+                    try {
+                        resizeImageTo1200x630(img);
+                        console.log('Imagem redimensionada para 1200x630px');
+                    } catch (error) {
+                        console.error('Erro ao redimensionar imagem:', error);
+                    }
+                }
+            };
+            
+            img.onerror = function() {
+                console.error('Erro ao carregar a imagem');
+                document.getElementById('debugInfo').innerHTML = '<strong>❌ Erro ao carregar a imagem original</strong>';
+            };
+            
+            // Se a imagem já estiver carregada
+            if (img.complete) {
+                img.onload();
+            }
+        });
+        
         // Força o refresh dos meta tags para redes sociais
         if (window.location.hash === '#refresh') {
             window.location.hash = '';
@@ -352,9 +513,7 @@
         setInterval(updateCountdown, 3600000);
         
         // Efeito de entrada suave
-        window.addEventListener('load', function() {
-            document.querySelector('.container').style.opacity = '1';
-        });
+        document.querySelector('.container').style.opacity = '1';
     </script>
 </body>
 </html>
